@@ -207,7 +207,7 @@ public class ExecMojo
         {
             if ( isSkip() )
             {
-                getLog().info( "skipping execute as per configuraion" );
+                getLog().info( "skipping execute as per configuration" );
                 return;
             }
 
@@ -310,7 +310,7 @@ public class ExecMojo
             }
             catch ( IOException x )
             {
-                getLog().error( "Could not assign default system enviroment variables.", x );
+                getLog().error( "Could not assign default system environment variables.", x );
             }
 
             if ( environmentVariables != null )

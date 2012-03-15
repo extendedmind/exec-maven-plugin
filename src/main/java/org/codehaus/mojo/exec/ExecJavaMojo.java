@@ -132,7 +132,7 @@ public class ExecJavaMojo
 
     /**
      * Indicates if mojo should be kept running after the mainclass terminates.
-     * Usefull for serverlike apps with deamonthreads.
+     * Useful for server-like apps with deamonthreads.
      *
      * @parameter expression="${exec.keepAlive}" default-value="false"
      * @deprecated since 1.1-alpha-1
@@ -180,7 +180,7 @@ public class ExecJavaMojo
     private ExecutableDependency executableDependency;
 
     /**
-     * Wether to interrupt/join and possibly stop the daemon threads upon quitting. <br/> If this is <code>false</code>,
+     * Whether to interrupt/join and possibly stop the daemon threads upon quitting. <br/> If this is <code>false</code>,
      *  maven does nothing about the daemon threads.  When maven has no more work to do, the VM will normally terminate
      *  any remaining daemon threads.
      * <p>
@@ -211,7 +211,7 @@ public class ExecJavaMojo
     private long daemonThreadJoinTimeout;
 
     /**
-     * Wether to call {@link Thread#stop()} following a timing out of waiting for an interrupted thread to finish.
+     * Whether to call {@link Thread#stop()} following a timing out of waiting for an interrupted thread to finish.
      * This is only taken into account if {@link #cleanupDaemonThreads} is <code>true</code>
      * and the {@link #daemonThreadJoinTimeout} threshold has been reached for an uncooperative thread.
      * If this is <code>false</code>, or if {@link Thread#stop()} fails to get the thread to stop, then
@@ -245,7 +245,7 @@ public class ExecJavaMojo
     {
         if ( isSkip() )
         {
-            getLog().info( "skipping execute as per configuraion" );
+            getLog().info( "skipping execute as per configuration" );
             return;
         }
         if ( killAfter != -1 )
@@ -349,7 +349,7 @@ public class ExecJavaMojo
         {
             if ( threadGroup.uncaughtException != null )
             {
-                throw new MojoExecutionException( "An exception occured while executing the Java class. " 
+                throw new MojoExecutionException( "An exception occurred while executing the Java class. "
                                                   + threadGroup.uncaughtException.getMessage(),
                                                   threadGroup.uncaughtException );
             }
@@ -629,7 +629,7 @@ public class ExecJavaMojo
      *
      * @return a set of Artifact objects.
      *         (Empty set is returned if there are no relevant plugin dependencies.)
-     * @throws MojoExecutionException if a problem happens resolving the plufin dependencies
+     * @throws MojoExecutionException if a problem happens resolving the plugin dependencies
      */
     private Set determineRelevantPluginDependencies()
         throws MojoExecutionException
