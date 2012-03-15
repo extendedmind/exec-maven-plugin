@@ -24,6 +24,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,9 +44,11 @@ import java.util.jar.Manifest;
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteException;
+import org.apache.commons.exec.ExecuteResultHandler;
 import org.apache.commons.exec.Executor;
 import org.apache.commons.exec.OS;
 import org.apache.commons.exec.PumpStreamHandler;
+import org.apache.commons.exec.ShutdownHookProcessDestroyer;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.IncludesArtifactFilter;
@@ -161,6 +167,31 @@ public class ExecMojo
      * @since 1.1.2
      */
     private boolean longClasspath;
+
+    /**
+     * If set to true, the process will be forked (i.e. started in the background).
+     *
+     * @parameter expression="${exec.background}" default-value="false"
+     * @since 1.2.1.jbossorg-1
+     */
+    private boolean background;
+
+    /**
+     * Only applies if background=true. If set, block until able to connect to the specified address or 60 seconds elapses.
+     *
+     * @parameter expression="${exec.backgroundPollingAddress}"
+     * @since 1.2.1.jbossorg-1
+     */
+    private String backgroundPollingAddress;
+
+    /**
+     * Only applies if background=true. Poll the backgroundPollingAddress for this many seconds before failing with
+     * an exception.
+     *
+     * @parameter expression="${exec.backgroundPollingTimeout}" default-value="60"
+     * @since 1.2.1.jbossorg-1
+     */
+    private int backgroundPollingTimeout = 60;
 
     public static final String CLASSPATH_TOKEN = "%classpath";
 
@@ -610,6 +641,102 @@ public class ExecMojo
         return exec.execute( commandLine, enviro );
     }
 
+    protected void executeCommandLineInBackground( Executor exec, final CommandLine commandLine, Map enviro,
+                                                   OutputStream out, OutputStream err )
+            throws ExecuteException, IOException, MojoExecutionException
+    {
+        ExecuteResultHandler resultHandler = new ExecuteResultHandler( )
+        {
+            public void onProcessComplete( int resultCode )
+            {
+                if ( isResultCodeAFailure( resultCode ) )
+                {
+                    getLog( ).error( "Background process with command line [" + commandLine + "] failed with exit code "
+                            + resultCode + "." );
+                } else
+                {
+                    getLog( ).info( "Background process with command line [" + commandLine + "] completed with exit code "
+                            + resultCode + "." );
+                }
+            }
+
+            public void onProcessFailed( ExecuteException e )
+            {
+                getLog( ).error( "An error occurred executing background process with command line [" + commandLine
+                        + "].", e );
+            }
+        };
+        exec.setStreamHandler( new PumpStreamHandler( out, err, System.in ) );
+        // Kill the process when this JVM exits.
+        exec.setProcessDestroyer( new ShutdownHookProcessDestroyer( ) );
+        exec.execute( commandLine, enviro, resultHandler );
+
+        if ( backgroundPollingAddress != null )
+        {
+            int colonIndex = backgroundPollingAddress.lastIndexOf( ':' );
+            if ( colonIndex == -1 )
+            {
+                throw new IllegalStateException( "backgroundBlockingAddress has an illegal value - it should be host:port." );
+            }
+            String host = backgroundPollingAddress.substring( 0, colonIndex );
+            int port = Integer.valueOf( backgroundPollingAddress.substring( colonIndex + 1 ) ).intValue();
+
+            getLog( ).info( "Attempting to connect to " + backgroundPollingAddress + " - will timeout after one minute..." );
+
+            InetAddress address = InetAddress.getByName( host );
+            InetSocketAddress socketAddress = new InetSocketAddress( address, port );
+            int pollingTimeoutMillis = backgroundPollingTimeout * 1000;
+            boolean connected = pollSocketAddress( socketAddress, pollingTimeoutMillis );
+
+            if ( connected )
+            {
+                getLog( ).info( "Connected to " + backgroundPollingAddress + " - assuming process with command line ["
+                        + commandLine + "] has fully started." );
+            } else
+            {
+                throw new MojoExecutionException( "Failed to connect to " + backgroundPollingAddress
+                        + " within one minute." );
+            }
+        }
+    }
+
+    private boolean pollSocketAddress( SocketAddress address, int timeout )
+    {
+        long startTime = System.currentTimeMillis( );
+        boolean connected = false;
+        while ( ( System.currentTimeMillis( ) - startTime ) < timeout )
+        {
+            Socket socket = new Socket( );
+            try
+            {
+                getLog( ).debug( "Attempting to connect to " + address + "..." );
+                socket.setReuseAddress( true );
+                socket.connect( address, 3000 );
+                connected = true;
+                try
+                {
+                    socket.close( );
+                    getLog( ).debug( "Closed connection to " + address + "." );
+                } catch ( IOException e )
+                {
+                    getLog( ).debug( "Failed to close connection to " + address + ": " + e );
+                }
+                break;
+            } catch ( IOException e )
+            {
+                getLog( ).error( "Failed to connect to " + address + ": " + e );
+                try
+                {
+                    Thread.sleep( 3000 );
+                } catch ( InterruptedException e1 )
+                {
+                    // ignore
+                }
+            }
+        }
+        return connected;
+    }
+
     void setExecutable( String executable )
     {
         this.executable = executable;
@@ -662,6 +789,33 @@ public class ExecMojo
     public int[] getSuccessCodes()
     {
         return successCodes;
+    }
+
+    public boolean isBackground() {
+        return background;
+    }
+
+    public void setBackground(boolean background) {
+        this.background = background;
+    }
+
+    public String getBackgroundPollingAddress() {
+        return backgroundPollingAddress;
+    }
+
+    public void setBackgroundPollingAddress(String backgroundPollingAddress) {
+        this.backgroundPollingAddress = backgroundPollingAddress;
+    }
+
+    public int getBackgroundPollingTimeout() {
+        return backgroundPollingTimeout;
+    }
+
+    public void setBackgroundPollingTimeout(int backgroundPollingTimeout) {
+        if (backgroundPollingTimeout < 0) {
+            throw new IllegalArgumentException("backgroundPollingTimeout cannot be negative.");
+        }
+        this.backgroundPollingTimeout = (backgroundPollingTimeout > 0) ? backgroundPollingTimeout : Integer.MAX_VALUE;
     }
 
     private Toolchain getToolchain()
