@@ -378,20 +378,28 @@ public class ExecMojo
 
             try
             {
-                getLog().debug( "Executing command line: " + commandLine );
-
-                int resultCode = executeCommandLine( exec, commandLine, enviro, stdout, stderr );
-
-                if ( isResultCodeAFailure( resultCode ) )
+                if ( background )
                 {
-                    throw new MojoExecutionException( "Result of " + commandLine + " execution is: '" + resultCode
-                        + "'." );
+                    getLog().debug( "Executing command line in background: " + commandLine );
+
+                    executeCommandLineInBackground( exec, commandLine, enviro, stdout, stderr );
+                }
+                else
+                {
+                    getLog().debug( "Executing command line: " + commandLine );
+
+                    int resultCode = executeCommandLine( exec, commandLine, enviro, stdout, stderr );
+
+                    if ( isResultCodeAFailure( resultCode ) )
+                    {
+                        throw new MojoExecutionException( "Result of " + commandLine + " execution is: '" + resultCode
+                            + "'." );
+                    }
                 }
             }
             catch ( ExecuteException e )
             {
                 throw new MojoExecutionException( "Command execution failed.", e );
-
             }
             catch ( IOException e )
             {
@@ -653,7 +661,8 @@ public class ExecMojo
                 {
                     getLog( ).error( "Background process with command line [" + commandLine + "] failed with exit code "
                             + resultCode + "." );
-                } else
+                }
+                else
                 {
                     getLog( ).info( "Background process with command line [" + commandLine + "] completed with exit code "
                             + resultCode + "." );
@@ -681,7 +690,8 @@ public class ExecMojo
             String host = backgroundPollingAddress.substring( 0, colonIndex );
             int port = Integer.valueOf( backgroundPollingAddress.substring( colonIndex + 1 ) ).intValue();
 
-            getLog( ).info( "Attempting to connect to " + backgroundPollingAddress + " - will timeout after one minute..." );
+            getLog( ).info( "Attempting to connect to " + backgroundPollingAddress + " - will timeout after "
+                    + backgroundPollingTimeout + " seconds." );
 
             InetAddress address = InetAddress.getByName( host );
             InetSocketAddress socketAddress = new InetSocketAddress( address, port );
@@ -692,10 +702,11 @@ public class ExecMojo
             {
                 getLog( ).info( "Connected to " + backgroundPollingAddress + " - assuming process with command line ["
                         + commandLine + "] has fully started." );
-            } else
+            }
+            else
             {
                 throw new MojoExecutionException( "Failed to connect to " + backgroundPollingAddress
-                        + " within one minute." );
+                        + " within " + backgroundPollingTimeout + " seconds." );
             }
         }
     }
@@ -717,18 +728,21 @@ public class ExecMojo
                 {
                     socket.close( );
                     getLog( ).debug( "Closed connection to " + address + "." );
-                } catch ( IOException e )
+                }
+                catch ( IOException e )
                 {
                     getLog( ).debug( "Failed to close connection to " + address + ": " + e );
                 }
                 break;
-            } catch ( IOException e )
+            }
+            catch ( IOException e )
             {
                 getLog( ).error( "Failed to connect to " + address + ": " + e );
                 try
                 {
                     Thread.sleep( 3000 );
-                } catch ( InterruptedException e1 )
+                }
+                catch ( InterruptedException e1 )
                 {
                     // ignore
                 }
