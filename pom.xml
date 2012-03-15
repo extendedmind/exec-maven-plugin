@@ -84,9 +84,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:svn:http://svn.codehaus.org/mojo/tags/exec-maven-plugin-1.2.1</connection>
-        <developerConnection>scm:svn:https://svn.codehaus.org/mojo/tags/exec-maven-plugin-1.2.1</developerConnection>
-        <url>http://fisheye.codehaus.org/browse/mojo/tags/exec-maven-plugin-1.2.1</url>
+        <connection>scm:git:git://github.com/ispringer/exec-maven-plugin.git</connection>
+        <developerConnection>scm:git:git@github.com:ispringer/exec-maven-plugin.git</developerConnection>
+        <url>https://github.com/ispringer/exec-maven-plugin</url>
     </scm>
 
     <dependencies>
