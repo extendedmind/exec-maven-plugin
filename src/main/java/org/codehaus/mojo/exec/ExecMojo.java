@@ -653,31 +653,31 @@ public class ExecMojo
                                                    OutputStream out, OutputStream err )
             throws ExecuteException, IOException, MojoExecutionException
     {
-        ExecuteResultHandler resultHandler = new ExecuteResultHandler( )
+        ExecuteResultHandler resultHandler = new ExecuteResultHandler()
         {
             public void onProcessComplete( int resultCode )
             {
                 if ( isResultCodeAFailure( resultCode ) )
                 {
-                    getLog( ).error( "Background process with command line [" + commandLine + "] failed with exit code "
+                    getLog().error( "Background process with command line [" + commandLine + "] failed with exit code "
                             + resultCode + "." );
                 }
                 else
                 {
-                    getLog( ).info( "Background process with command line [" + commandLine + "] completed with exit code "
+                    getLog().info( "Background process with command line [" + commandLine + "] completed with exit code "
                             + resultCode + "." );
                 }
             }
 
             public void onProcessFailed( ExecuteException e )
             {
-                getLog( ).error( "An error occurred executing background process with command line [" + commandLine
+                getLog().error( "An error occurred executing background process with command line [" + commandLine
                         + "].", e );
             }
         };
         exec.setStreamHandler( new PumpStreamHandler( out, err, System.in ) );
         // Kill the process when this JVM exits.
-        exec.setProcessDestroyer( new ShutdownHookProcessDestroyer( ) );
+        exec.setProcessDestroyer( new ShutdownHookProcessDestroyer() );
         exec.execute( commandLine, enviro, resultHandler );
 
         if ( backgroundPollingAddress != null )
@@ -690,7 +690,7 @@ public class ExecMojo
             String host = backgroundPollingAddress.substring( 0, colonIndex );
             int port = Integer.valueOf( backgroundPollingAddress.substring( colonIndex + 1 ) ).intValue();
 
-            getLog( ).info( "Attempting to connect to " + backgroundPollingAddress + " - will timeout after "
+            getLog().info( "Attempting to connect to " + backgroundPollingAddress + " - will timeout after "
                     + backgroundPollingTimeout + " seconds." );
 
             InetAddress address = InetAddress.getByName( host );
@@ -700,7 +700,7 @@ public class ExecMojo
 
             if ( connected )
             {
-                getLog( ).info( "Connected to " + backgroundPollingAddress + " - assuming process with command line ["
+                getLog().info( "Connected to " + backgroundPollingAddress + " - assuming process with command line ["
                         + commandLine + "] has fully started." );
             }
             else
@@ -713,31 +713,32 @@ public class ExecMojo
 
     private boolean pollSocketAddress( SocketAddress address, int timeout )
     {
-        long startTime = System.currentTimeMillis( );
+        long startTime = System.currentTimeMillis();
         boolean connected = false;
-        while ( ( System.currentTimeMillis( ) - startTime ) < timeout )
+        IOException lastException = null;
+        while ( ( System.currentTimeMillis() - startTime ) < timeout )
         {
-            Socket socket = new Socket( );
+            Socket socket = new Socket();
             try
             {
-                getLog( ).debug( "Attempting to connect to " + address + "..." );
+                getLog().debug( "Attempting to connect to " + address + "..." );
                 socket.setReuseAddress( true );
                 socket.connect( address, 3000 );
                 connected = true;
                 try
                 {
-                    socket.close( );
-                    getLog( ).debug( "Closed connection to " + address + "." );
+                    socket.close();
+                    getLog().debug( "Closed connection to " + address + "." );
                 }
                 catch ( IOException e )
                 {
-                    getLog( ).debug( "Failed to close connection to " + address + ": " + e );
+                    getLog().debug( "Failed to close connection to " + address + ": " + e );
                 }
                 break;
             }
             catch ( IOException e )
             {
-                getLog( ).error( "Failed to connect to " + address + ": " + e );
+                lastException = e;
                 try
                 {
                     Thread.sleep( 3000 );
@@ -747,6 +748,11 @@ public class ExecMojo
                     // ignore
                 }
             }
+        }
+        if ( !connected && ( lastException != null ) )
+        {
+            getLog().debug( "Failed to connect to " + address + " - exception on final connection attempt: "
+                    + lastException );
         }
         return connected;
     }
