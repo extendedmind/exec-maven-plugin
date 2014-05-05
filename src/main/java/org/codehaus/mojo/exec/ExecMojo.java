@@ -22,12 +22,15 @@ package org.codehaus.mojo.exec;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -184,6 +187,14 @@ public class ExecMojo
      */
     private String backgroundPollingAddress;
 
+    /**
+     * Only applies if background=true. If set, block until able to connect to the specified address or 60 seconds elapses.
+     *
+     * @parameter expression="${exec.backgroundPollingAddress}"
+     * @since 1.2.1.em
+     */
+    private String backgroundHttpPollingAddress;
+    
     /**
      * Only applies if background=true. Poll the backgroundPollingAddress for this many seconds before failing with
      * an exception.
@@ -708,6 +719,29 @@ public class ExecMojo
                 throw new MojoExecutionException( "Failed to connect to " + backgroundPollingAddress
                         + " within " + backgroundPollingTimeout + " seconds." );
             }
+        }else if (backgroundHttpPollingAddress != null){
+            long startTime = System.currentTimeMillis();
+            int timeout = backgroundPollingTimeout * 1000;
+        	URL url = new URL(backgroundHttpPollingAddress);
+
+    		boolean connected = false;
+    		do{
+    			try{
+                	HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+                	connection.setRequestMethod("GET");
+        			connection.connect();
+	        		if (connection.getResponseCode() == 200){
+	        			connected = true;
+	        		}
+            	}catch(IOException e){
+            		// Do nothing
+            	}
+			}while(!connected && (System.currentTimeMillis() - startTime ) < timeout);
+    		if (!connected){
+    			throw new MojoExecutionException( "Could not get status 200 from " + backgroundHttpPollingAddress
+                        + " within " + backgroundPollingTimeout + " seconds." );
+    		}
+        	
         }
     }
 
